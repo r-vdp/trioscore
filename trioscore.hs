@@ -1,15 +1,15 @@
-{-# OPTIONS_GHC -O2 -Wall -Werror #-}
+{-# OPTIONS_GHC -O2 -Wall #-}
 
 import System.IO
+import Control.Monad.Writer
 import qualified Data.Map as Map
 
 type ScoreMap = Map.Map String Integer
 
-newtype Scores = Scores ScoreMap
-    deriving (Eq, Ord)
+newtype Scores = Scores ScoreMap deriving (Eq, Ord)
 
 instance Show Scores where
-    show scores = "\nCurrent scores: " ++ showScores scores
+    show scores = "Current scores:\n" ++ showScores scores
 
 showScores :: Scores -> String
 showScores (Scores scoreMap)
@@ -17,7 +17,7 @@ showScores (Scores scoreMap)
     | otherwise         = unlines . (map formatPair) . Map.toList $ scoreMap
 
 formatPair :: (Show a) => (String, a) -> String
-formatPair (s, a) = '\n' : '\t' : (s ++ ": " ++ show a)
+formatPair (s, a) = '\t' : (s ++ ": " ++ show a)
 
 toMap :: Scores -> ScoreMap
 toMap (Scores scoreMap) = scoreMap
@@ -29,16 +29,22 @@ deleteScore :: String -> Scores -> Scores
 deleteScore name = Scores . (Map.delete name) . toMap
 
 
-handleInput :: [String] -> Scores -> Scores
-handleInput []          = id
-handleInput [_]         = id
-handleInput ("del":x:_) = deleteScore x
-handleInput (x:y:_)     = addScore x (parseScore y)
+handleInput :: [String] -> Scores -> Writer String Scores
+handleInput []        s = return s
+handleInput ["del",x] s = return (deleteScore x s)
+handleInput [x,y]     s = do score <- parseScore y
+                             return (addScore x score s)
+handleInput _         s = unknown s
 
-parseScore :: String -> Integer
+unknown :: Scores -> Writer String Scores
+unknown s = do tell "Unknown command!"
+               return s
+
+parseScore :: String -> Writer String Integer
 parseScore string = case reads string of
-                        [(score, _)] -> score
-                        _            -> 0
+                        [(score, _)] -> return score
+                        _            -> do tell "Could not parse score!"
+                                           return 0
 
 run :: Scores -> IO ()
 run scores = do
@@ -48,10 +54,16 @@ run scores = do
     parseLine (words line) scores
 
 parseLine :: [String] -> Scores -> IO ()
-parseLine line scores
-    | isEnd line = return ()
-    | otherwise  = let newScores = handleInput line scores
-                   in print newScores >> run newScores
+parseLine line
+    | isEnd line = (const . return) ()
+    | otherwise  = rerun . runWriter . (handleInput line)
+
+rerun :: (Scores, String) -> IO ()
+rerun (scores, msg) = printError msg >> print scores >> run scores
+
+printError :: String -> IO ()
+printError "" = return ()
+printError s  = putStrLn s
 
 isEnd :: [String] -> Bool
 isEnd ("end":_) = True
