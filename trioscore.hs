@@ -1,40 +1,17 @@
 {-# OPTIONS_GHC -O2 -Wall #-}
 
-import System.IO
+import Control.Monad
 import Control.Monad.Writer
-import qualified Data.Map as Map
+import System.IO
 
-type ScoreMap = Map.Map String Integer
-
-newtype Scores = Scores { getScores :: ScoreMap } deriving (Eq, Ord)
-
-instance Show Scores where
-  show scores = "Current scores:\n" ++ showScores scores
-
-showScores :: Scores -> String
-showScores (Scores scoreMap)
-  | Map.null scoreMap = "none\n"
-  | otherwise         = unlines . (map formatPair) . Map.toList $ scoreMap
-
-formatPair :: (Show a) => (String, a) -> String
-formatPair (s, a) = '\t' : (s ++ ": " ++ show a)
-
-addScore :: String -> Integer -> Scores -> Scores
-addScore name score = Scores . (Map.insertWith (+) name score) . getScores
-
-deleteScore :: String -> Scores -> Scores
-deleteScore name = Scores . (Map.delete name) . getScores
-
-emptyScores :: Scores
-emptyScores = Scores Map.empty
+import Scores
 
 
 handleInput :: [String] -> Scores -> Writer String Scores
-handleInput []        s = return s
-handleInput ["del",x] s = return (deleteScore x s)
-handleInput [x,y]     s = do score <- parseScore y
-                             return (addScore x score s)
-handleInput _         s = unknown s
+handleInput []        = return
+handleInput ["del",x] = return . (deleteScore x)
+handleInput [x,y]     = liftM3 addScore (return x) (parseScore y) . return
+handleInput _         = unknown
 
 unknown :: Scores -> Writer String Scores
 unknown s = tell "Unknown command!" >> return s
