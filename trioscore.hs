@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -O2 -Wall #-}
 
-import Control.Monad
+import Control.Applicative
 import Control.Monad.Writer
 import System.IO
 
@@ -8,9 +8,9 @@ import Scores
 
 
 handleInput :: [String] -> Scores -> Writer String Scores
-handleInput []        = return
-handleInput ["del",x] = return . (deleteScore x)
-handleInput [x,y]     = liftM3 addScore (return x) (parseScore y) . return
+handleInput []        = pure
+handleInput ["del",x] = pure . (deleteScore x)
+handleInput [x,y]     = liftA3 addScore (pure x) (parseScore y) . pure
 handleInput _         = unknown
 
 unknown :: Scores -> Writer String Scores
