@@ -9,7 +9,7 @@ import Scores
 
 handleInput :: [String] -> Scores -> Writer String Scores
 handleInput []        = pure
-handleInput ["del",x] = pure . (deleteScore x)
+handleInput ["del",x] = pure . deleteScore x
 handleInput [x,y]     = liftA3 addScore (pure x) (parseScore y) . pure
 handleInput _         = unknown
 
@@ -31,7 +31,7 @@ run scores = do
 parseLine :: [String] -> Scores -> IO ()
 parseLine line
   | isEnd line = (const . return) ()
-  | otherwise  = rerun . runWriter . (handleInput line)
+  | otherwise  = rerun . runWriter . handleInput line
 
 rerun :: (Scores, String) -> IO ()
 rerun (scores, msg) = printError msg >> print scores >> run scores
